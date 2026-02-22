@@ -1,0 +1,141 @@
+/* starwind.presence.css
+   Presence primitive for <sw-presence>, using:
+     - state: sw-presence[data-state="visible|invisible|hidden|absent"]
+     - animation opt-in: sw-presence[animate~="entry|discrete"]
+     - view transitions opt-in: sw-presence[view-transition="presence"]
+
+   Notes:
+   - Default display is `contents` (layout-transparent). Add the `box` attribute
+     to make it a real box (`display: block`) so opacity/transform transitions
+     can apply.
+   - `hidden`/`absent` use display:none (non-animatable). To animate out:
+       visible -> invisible (animate) -> hidden/absent (then set display:none).
+     That final step is behavior-layer logic (Datastar/app).
+*/
+
+@layer starwind.presence {
+    /* ------------------------------------------------------------
+     Base: wrapper behavior
+     ------------------------------------------------------------ */
+    :where(sw-presence) {
+        display: contents;
+    }
+
+    :where(sw-presence[box]) {
+        display: block;
+    }
+
+    /* ------------------------------------------------------------
+     States
+     - Missing data-state => treat as visible
+     ------------------------------------------------------------ */
+    :where(sw-presence:not([data-state]), sw-presence[data-state="visible"]) {
+        /* intentionally empty */
+    }
+
+    :where(sw-presence[data-state="invisible"]) {
+        visibility: hidden;
+    }
+
+    :where(sw-presence[data-state="hidden"], sw-presence[data-state="absent"]) {
+        display: none;
+    }
+
+    /* ------------------------------------------------------------
+     Discrete transitions (opt-in)
+     ------------------------------------------------------------ */
+    @supports (transition-behavior: allow-discrete) {
+        :where(sw-presence[animate~="discrete"]) {
+            transition-behavior: allow-discrete;
+        }
+    }
+
+    /* ------------------------------------------------------------
+     Entry transitions (opt-in)
+     ------------------------------------------------------------ */
+    :where(sw-presence[box][animate~="entry"]) {
+        --sw-presence-dur: var(--sw-presence-dur, 160ms);
+        --sw-presence-ease: var(--sw-presence-ease, ease-out);
+        --sw-presence-offset: var(--sw-presence-offset, 0.25rem);
+
+        transition-property: opacity, transform;
+        transition-duration: var(--sw-presence-dur);
+        transition-timing-function: var(--sw-presence-ease);
+    }
+
+    :where(
+        sw-presence[box][animate~="entry"]:not([data-state]),
+        sw-presence[box][animate~="entry"][data-state="visible"]
+    ) {
+        opacity: 1;
+        transform: none;
+    }
+
+    :where(sw-presence[box][animate~="entry"][data-state="invisible"]) {
+        opacity: 0;
+        transform: translateY(var(--sw-presence-offset));
+    }
+
+    :where(
+        sw-presence[box][animate~="entry"][data-state="hidden"],
+        sw-presence[box][animate~="entry"][data-state="absent"]
+    ) {
+        opacity: 0;
+        transform: translateY(var(--sw-presence-offset));
+    }
+
+    /* Entry transitions: when it becomes rendered as visible, start “from” */
+    @starting-style {
+        :where(
+            sw-presence[box][animate~="entry"]:not([data-state]),
+            sw-presence[box][animate~="entry"][data-state="visible"]
+        ) {
+            opacity: 0;
+            transform: translateY(var(--sw-presence-offset));
+        }
+    }
+
+    /* ------------------------------------------------------------
+     View Transitions hooks (opt-in)
+     Requires JS: document.startViewTransition(...)
+     ------------------------------------------------------------ */
+    :where(sw-presence[view-transition="presence"]) {
+        view-transition-name: sw-presence;
+    }
+
+    ::view-transition-old(sw-presence),
+    ::view-transition-new(sw-presence) {
+        animation-duration: var(--sw-presence-vt-dur, 220ms);
+        animation-timing-function: var(--sw-presence-vt-ease, ease-out);
+    }
+
+    ::view-transition-old(sw-presence) {
+        animation-name: sw-presence-fade-out;
+    }
+
+    ::view-transition-new(sw-presence) {
+        animation-name: sw-presence-fade-in;
+    }
+
+    @keyframes sw-presence-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(var(--sw-presence-vt-offset, 0.25rem));
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    @keyframes sw-presence-fade-out {
+        from {
+            opacity: 1;
+            transform: none;
+        }
+        to {
+            opacity: 0;
+            transform: translateY(var(--sw-presence-vt-offset, 0.25rem));
+        }
+    }
+}
